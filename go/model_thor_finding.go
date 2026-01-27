@@ -10,8 +10,12 @@
 
 package thunderstormmock
 
-// ThorFinding - THOR Finding
+// ThorFinding - Mocked THOR Finding
 type ThorFinding struct {
+	Type   string `json:"type,omitempty"`
+	ID     int64  `json:"id,omitempty"`
+	Hash   string `json:"hash,omitempty"`
+	Source string `json:"source,omitempty"`
 }
 
 // AssertThorFindingRequired checks if the required fields are not zero-ed

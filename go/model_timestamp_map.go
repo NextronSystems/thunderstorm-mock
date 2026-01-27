@@ -11,8 +11,7 @@
 package thunderstormmock
 
 // TimestampMap - Map of timestamps to integer values
-type TimestampMap struct {
-}
+type TimestampMap map[string]uint64
 
 // AssertTimestampMapRequired checks if the required fields are not zero-ed
 func AssertTimestampMapRequired(obj TimestampMap) error {

@@ -12,8 +12,7 @@ package thunderstormmock
 
 import (
 	"context"
-	"errors"
-	"net/http"
+	"fmt"
 	"os"
 )
 
@@ -30,34 +29,38 @@ func NewScanAPIService() *ScanAPIService {
 
 // Check - Check a file with THOR
 func (s *ScanAPIService) Check(ctx context.Context, file *os.File, source string) (ImplResponse, error) {
-	// TODO - update Check with the required logic for this service method.
-	// Add api_scan_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
+	if resp, found := getSpecialTriggerResponse(source); found {
+		return resp, nil
+	}
 
-	// TODO: Uncomment the next line to return response Response(200, ThorReport{}) or use other options such as http.Ok ...
-	// return Response(200, ThorReport{}), nil
-
-	// TODO: Uncomment the next line to return response Response(400, Error{}) or use other options such as http.Ok ...
-	// return Response(400, Error{}), nil
-
-	// TODO: Uncomment the next line to return response Response(500, Error{}) or use other options such as http.Ok ...
-	// return Response(500, Error{}), nil
-
-	return Response(http.StatusNotImplemented, nil), errors.New("Check method not implemented")
+	req, err := StoreScanRequest(true, file, source)
+	if err != nil {
+		return Response(500, Error{Message: fmt.Sprintf("Internal server error: %v", err)}), nil
+	}
+	return Response(200, req.ToThorReport()), nil
 }
 
 // CheckAsync - Check a file with THOR asynchronously
 func (s *ScanAPIService) CheckAsync(ctx context.Context, file *os.File, source string) (ImplResponse, error) {
-	// TODO - update CheckAsync with the required logic for this service method.
-	// Add api_scan_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
+	if resp, found := getSpecialTriggerResponse(source); found {
+		return resp, nil
+	}
 
-	// TODO: Uncomment the next line to return response Response(200, SampleIdObj{}) or use other options such as http.Ok ...
-	// return Response(200, SampleIdObj{}), nil
+	req, err := StoreScanRequest(false, file, source)
+	if err != nil {
+		return Response(500, Error{Message: fmt.Sprintf("Internal server error: %v", err)}), nil
+	}
+	return Response(200, SampleId{Id: int64(req.ID)}), nil
+}
 
-	// TODO: Uncomment the next line to return response Response(400, Error{}) or use other options such as http.Ok ...
-	// return Response(400, Error{}), nil
-
-	// TODO: Uncomment the next line to return response Response(500, Error{}) or use other options such as http.Ok ...
-	// return Response(500, Error{}), nil
-
-	return Response(http.StatusNotImplemented, nil), errors.New("CheckAsync method not implemented")
+// getSpecialTriggerResponse checks source for special testing-related triggers
+// and returns a corresponding response and true if found, else returns false.
+func getSpecialTriggerResponse(source string) (ImplResponse, bool) {
+	switch source {
+	case "error 400":
+		return Response(400, Error{Message: "Invalid parameters given"}), true
+	case "error 500":
+		return Response(500, Error{Message: "Internal server error"}), true
+	}
+	return ImplResponse{}, false
 }

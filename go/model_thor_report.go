@@ -11,9 +11,7 @@
 package thunderstormmock
 
 // ThorReport - THOR Report containing findings
-type ThorReport struct {
-	Items []ThorFinding
-}
+type ThorReport []ThorFinding
 
 // AssertThorReportRequired checks if the required fields are not zero-ed
 func AssertThorReportRequired(obj ThorReport) error {

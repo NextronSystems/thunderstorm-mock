@@ -12,8 +12,6 @@ package thunderstormmock
 
 import (
 	"context"
-	"errors"
-	"net/http"
 )
 
 // InfoAPIService is a service that implements the logic for the InfoAPIServicer
@@ -29,53 +27,20 @@ func NewInfoAPIService() *InfoAPIService {
 
 // QueueHistory - Retrieve a history of how many asynchronous requests were queued
 func (s *InfoAPIService) QueueHistory(ctx context.Context, aggregate int64, limit int64) (ImplResponse, error) {
-	// TODO - update QueueHistory with the required logic for this service method.
-	// Add api_info_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
-
-	// TODO: Uncomment the next line to return response Response(200, TimestampMap{}) or use other options such as http.Ok ...
-	// return Response(200, TimestampMap{}), nil
-
-	// TODO: Uncomment the next line to return response Response(400, Error{}) or use other options such as http.Ok ...
-	// return Response(400, Error{}), nil
-
-	return Response(http.StatusNotImplemented, nil), errors.New("QueueHistory method not implemented")
+	return Response(200, History(queueHistory, aggregate, limit)), nil
 }
 
 // SampleHistory - Retrieve a history of how many samples were scanned
 func (s *InfoAPIService) SampleHistory(ctx context.Context, aggregate int64, limit int64) (ImplResponse, error) {
-	// TODO - update SampleHistory with the required logic for this service method.
-	// Add api_info_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
-
-	// TODO: Uncomment the next line to return response Response(200, TimestampMap{}) or use other options such as http.Ok ...
-	// return Response(200, TimestampMap{}), nil
-
-	// TODO: Uncomment the next line to return response Response(400, Error{}) or use other options such as http.Ok ...
-	// return Response(400, Error{}), nil
-
-	return Response(http.StatusNotImplemented, nil), errors.New("SampleHistory method not implemented")
+	return Response(200, History(sampleHistory, aggregate, limit)), nil
 }
 
 // Info - Receive static information about the running THOR instance
 func (s *InfoAPIService) Info(ctx context.Context) (ImplResponse, error) {
-	// TODO - update Info with the required logic for this service method.
-	// Add api_info_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
-
-	// TODO: Uncomment the next line to return response Response(200, ThunderstormInfo{}) or use other options such as http.Ok ...
-	// return Response(200, ThunderstormInfo{}), nil
-
-	// TODO: Uncomment the next line to return response Response(500, Error{}) or use other options such as http.Ok ...
-	// return Response(500, Error{}), nil
-
-	return Response(http.StatusNotImplemented, nil), errors.New("Info method not implemented")
+	return Response(200, MockInfo()), nil
 }
 
 // Status - Receive live information about the running THOR instance
 func (s *InfoAPIService) Status(ctx context.Context) (ImplResponse, error) {
-	// TODO - update Status with the required logic for this service method.
-	// Add api_info_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
-
-	// TODO: Uncomment the next line to return response Response(200, ThunderstormStatus{}) or use other options such as http.Ok ...
-	// return Response(200, ThunderstormStatus{}), nil
-
-	return Response(http.StatusNotImplemented, nil), errors.New("Status method not implemented")
+	return Response(200, MockStatus()), nil
 }

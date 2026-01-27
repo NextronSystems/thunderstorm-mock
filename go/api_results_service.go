@@ -12,8 +12,6 @@ package thunderstormmock
 
 import (
 	"context"
-	"errors"
-	"net/http"
 )
 
 // ResultsAPIService is a service that implements the logic for the ResultsAPIServicer
@@ -29,17 +27,18 @@ func NewResultsAPIService() *ResultsAPIService {
 
 // GetAsyncResults - Retrieve the results of an asynchronous file check
 func (s *ResultsAPIService) GetAsyncResults(ctx context.Context, id int64) (ImplResponse, error) {
-	// TODO - update GetAsyncResults with the required logic for this service method.
-	// Add api_results_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
+	switch id {
+	// Handle some special triggers for testing purposes
+	case 0:
+		return Response(200, ScanRequest{ID: 0}.ToResult()), nil
+	case -400:
+		return Response(400, Error{Message: "Invalid parameters given"}), nil
+	case -500:
+		return Response(500, Error{Message: "Internal server error"}), nil
+	}
 
-	// TODO: Uncomment the next line to return response Response(200, AsyncResult{}) or use other options such as http.Ok ...
-	// return Response(200, AsyncResult{}), nil
-
-	// TODO: Uncomment the next line to return response Response(400, Error{}) or use other options such as http.Ok ...
-	// return Response(400, Error{}), nil
-
-	// TODO: Uncomment the next line to return response Response(500, Error{}) or use other options such as http.Ok ...
-	// return Response(500, Error{}), nil
-
-	return Response(http.StatusNotImplemented, nil), errors.New("GetAsyncResults method not implemented")
+	if req, ok := LoadScanRequest(id); ok {
+		return Response(200, req.ToResult()), nil
+	}
+	return Response(400, Error{Message: "Invalid sample ID"}), nil
 }

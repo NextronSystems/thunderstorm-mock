@@ -22,4 +22,18 @@
 # Then explicitly reverse the ignore rule for a single file:
 #!docs/README.md
 
+# Files expected to be customized after first generation and then fixed:
+# (i.e., you probably want to keep these ignores permanently, or only disable
+# temporarily on massive API changes or huge version bumps of the generator.)
 /README.md
+go/*_service.go
+
+# Files that normally shouldn't be changed, but we need changes there:
+# (i.e., you might want to disable these ignores temporarily to check for
+# updates in the generation code when regenerating.)
+go/model_thor_finding.go
+go/model_thor_report.go
+go/model_timestamp_map.go
+go/logger.go
+main.go
+go.mod
