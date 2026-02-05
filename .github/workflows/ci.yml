@@ -1,0 +1,199 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  format:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Check gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not formatted correctly:"
+            echo "$unformatted"
+            echo ""
+            echo "Run 'gofmt -w .' to fix formatting"
+            exit 1
+          fi
+          echo "All files are properly formatted"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: format
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run unit tests
+        run: go test -v -count=1 ./go/...
+
+      - name: Run integration tests
+        run: go test -tags=integration -v -count=1
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for git describe
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Get version from git
+        id: version
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0-dev")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Build binary with version
+        run: |
+          go build -ldflags "-X main.Version=${{ steps.version.outputs.version }}" -o thunderstorm-mock .
+
+      - name: Verify version in binary
+        run: |
+          ./thunderstorm-mock --version
+          BINARY_VERSION=$(./thunderstorm-mock --version)
+          echo "Binary reports version: $BINARY_VERSION"
+          if [ "$BINARY_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "ERROR: Binary version mismatch!"
+            exit 1
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: thunderstorm-mock
+          path: thunderstorm-mock
+          retention-days: 7
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: build
+    # Quick minimal test, proper one follows
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Verify tag version
+        id: tag
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo ""
+            echo "ERROR: Tag pattern mismatch!"
+            echo "Tag $TAG does not match the required format v[0-9]+.[0-9]+.[0-9]+"
+            echo ""
+            exit 1
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG"
+
+      - name: Validate version constant matches tag
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Extract the Version constant from main.go
+          CODE_VERSION=$(grep -E '^var Version = ".*"$' main.go | sed 's/.*"\(.*\)".*/\1/')
+          echo "Tag version: $TAG"
+          echo "Code version constant: $CODE_VERSION"
+          if [ "$CODE_VERSION" != "$TAG" ]; then
+            echo ""
+            echo "ERROR: Version mismatch!"
+            echo "The Version constant in main.go ($CODE_VERSION) does not match the git tag ($TAG)."
+            echo ""
+            echo "Please update the Version constant in main.go to match the release tag:"
+            echo "  var Version = \"$TAG\""
+            echo ""
+            exit 1
+          fi
+          echo "Version constant matches tag - OK"
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: thunderstorm-mock
+
+      - name: Make binary executable
+        run: chmod +x thunderstorm-mock
+
+      - name: Verify binary version matches tag
+        run: |
+          BINARY_VERSION=$(./thunderstorm-mock --version)
+          TAG="${{ steps.tag.outputs.tag }}"
+          echo "Binary version: $BINARY_VERSION"
+          echo "Tag version: $TAG"
+          if [ "$BINARY_VERSION" != "$TAG" ]; then
+            echo "ERROR: Binary version does not match tag!"
+            exit 1
+          fi
+          echo "Binary version matches tag - OK"
+
+      - name: Rename binary with version
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          mv thunderstorm-mock "thunderstorm-mock-${TAG}"
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: thunderstorm-mock-${{ steps.tag.outputs.tag }}
