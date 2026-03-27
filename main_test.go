@@ -253,38 +253,47 @@ func TestGETEndpoints(t *testing.T) {
 	tests := []struct {
 		name           string
 		path           string
+		handler        string // expected handler name in stdout log
 		requiredFields []string
 	}{
 		{
 			name:           "Info",
 			path:           "/info",
+			handler:        "Info",
 			requiredFields: []string{"version_info", "arguments", "license_expiration", "license_owner", "threads"},
 		},
 		{
 			name:           "Status",
 			path:           "/status",
+			handler:        "Status",
 			requiredFields: []string{"scanned_samples", "queued_async_requests", "avg_scan_time_milliseconds", "avg_wait_time_milliseconds"},
 		},
 		{
-			name: "QueueHistory",
-			path: "/queueHistory",
+			name:    "QueueHistory",
+			path:    "/queueHistory",
+			handler: "QueueHistory",
 		},
 		{
-			name: "QueueHistory with params",
-			path: "/queueHistory?aggregate=5&limit=60",
+			name:    "QueueHistory with params",
+			path:    "/queueHistory?aggregate=5&limit=60",
+			handler: "QueueHistory",
 		},
 		{
-			name: "SampleHistory",
-			path: "/sampleHistory",
+			name:    "SampleHistory",
+			path:    "/sampleHistory",
+			handler: "SampleHistory",
 		},
 		{
-			name: "SampleHistory with params",
-			path: "/sampleHistory?aggregate=10&limit=120",
+			name:    "SampleHistory with params",
+			path:    "/sampleHistory?aggregate=10&limit=120",
+			handler: "SampleHistory",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			server.getAndClearStdout() // drain previous output
+
 			resp, err := http.Get(apiBase + tc.path)
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
@@ -311,48 +320,43 @@ func TestGETEndpoints(t *testing.T) {
 					t.Errorf("missing required field: %s", field)
 				}
 			}
+
+			// Verify that the stdout log matches the HTTP exchange.
+			stdout := server.getAndClearStdout()
+			entries := parseLogEntries(stdout)
+			if len(entries) == 0 {
+				t.Fatal("no log entry found on stdout")
+			}
+
+			entry := entries[len(entries)-1]
+
+			if entry.Handler != tc.handler {
+				t.Errorf("stdout: expected handler %q, got %q", tc.handler, entry.Handler)
+			}
+			if entry.Method != "GET" {
+				t.Errorf("stdout: expected method GET, got %q", entry.Method)
+			}
+			expectedURI := "/api/v1" + tc.path
+			if entry.URI != expectedURI {
+				t.Errorf("stdout: expected URI %q, got %q", expectedURI, entry.URI)
+			}
+			if entry.Time == "" {
+				t.Error("stdout: expected non-empty time field")
+			}
+
+			// The logged response must match the actual HTTP response body.
+			var loggedResponse map[string]interface{}
+			if err := json.Unmarshal([]byte(entry.Response), &loggedResponse); err != nil {
+				t.Fatalf("stdout: response is not valid JSON: %v", err)
+			}
+
+			// Re-serialize both to compare (avoids whitespace/key-order issues).
+			actualJSON, _ := json.Marshal(result)
+			loggedJSON, _ := json.Marshal(loggedResponse)
+			if string(actualJSON) != string(loggedJSON) {
+				t.Errorf("stdout response does not match HTTP response\nHTTP:   %s\nstdout: %s", actualJSON, loggedJSON)
+			}
 		})
-	}
-}
-
-func TestStdoutLogging(t *testing.T) {
-	// Hit /info to generate a log entry, then verify its structure.
-	resp, err := http.Get(apiBase + "/info")
-	if err != nil {
-		t.Fatalf("request failed: %v", err)
-	}
-	_ = resp.Body.Close()
-
-	stdout := server.getAndClearStdout()
-	entries := parseLogEntries(stdout)
-
-	var infoEntry *LogEntry
-	for i := range entries {
-		if entries[i].Handler == "Info" {
-			infoEntry = &entries[i]
-			break
-		}
-	}
-	if infoEntry == nil {
-		t.Fatal("Info handler log entry not found in stdout")
-	}
-
-	if infoEntry.Method != "GET" {
-		t.Errorf("expected method 'GET', got '%s'", infoEntry.Method)
-	}
-	if infoEntry.URI != "/api/v1/info" {
-		t.Errorf("expected URI '/api/v1/info', got '%s'", infoEntry.URI)
-	}
-	if infoEntry.Time == "" {
-		t.Error("expected non-empty time field")
-	}
-	if infoEntry.Response == "" {
-		t.Error("expected non-empty response field")
-	}
-
-	var loggedResponse map[string]interface{}
-	if err := json.Unmarshal([]byte(infoEntry.Response), &loggedResponse); err != nil {
-		t.Errorf("logged response is not valid JSON: %v", err)
 	}
 }
 

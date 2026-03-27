@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
-	"strings"
 
 	thunderstormmock "github.com/NextronSystems/thunderstorm-mock/go"
 )
@@ -39,7 +39,6 @@ type Config struct {
 	Address string
 	Output  string
 	Version bool
-	Help    bool
 }
 
 // getEnv returns the environment variable value or the default
@@ -142,6 +141,13 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Build the listen address
+	listenAddr := cfg.Address + ":" + cfg.Port
+	if _, _, err := net.SplitHostPort(listenAddr); err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid listen address and port combination: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Setup output
 	output, cleanup, err := setupOutput(cfg.Output)
 	if err != nil {
@@ -153,23 +159,25 @@ func main() {
 	// Configure the logger to use the specified output
 	thunderstormmock.SetLogOutput(output)
 
+	// Enforce consistent error responses
+	thunderstormErrorHandler := func(w http.ResponseWriter, r *http.Request, err error, _ *thunderstormmock.ImplResponse) {
+		// Use error model from the API specification
+		msg := thunderstormmock.Error{Message: fmt.Sprintf("Internal server error: %v", err)}
+		code := func(i int) *int { return &i }(http.StatusInternalServerError)
+		_ = thunderstormmock.EncodeJSONResponse(msg, code, w)
+	}
+
 	// Create API services and controllers
 	InfoAPIService := thunderstormmock.NewInfoAPIService()
-	InfoAPIController := thunderstormmock.NewInfoAPIController(InfoAPIService)
+	InfoAPIController := thunderstormmock.NewInfoAPIController(InfoAPIService, thunderstormmock.WithInfoAPIErrorHandler(thunderstormErrorHandler))
 
 	ResultsAPIService := thunderstormmock.NewResultsAPIService()
-	ResultsAPIController := thunderstormmock.NewResultsAPIController(ResultsAPIService)
+	ResultsAPIController := thunderstormmock.NewResultsAPIController(ResultsAPIService, thunderstormmock.WithResultsAPIErrorHandler(thunderstormErrorHandler))
 
 	ScanAPIService := thunderstormmock.NewScanAPIService()
-	ScanAPIController := thunderstormmock.NewScanAPIController(ScanAPIService)
+	ScanAPIController := thunderstormmock.NewScanAPIController(ScanAPIService, thunderstormmock.WithScanAPIErrorHandler(thunderstormErrorHandler))
 
 	router := thunderstormmock.NewRouter(InfoAPIController, ResultsAPIController, ScanAPIController)
-
-	// Build the listen address
-	listenAddr := cfg.Address
-	if !strings.Contains(listenAddr, ":") {
-		listenAddr = listenAddr + ":" + cfg.Port
-	}
 
 	// Log startup info to stderr (always visible)
 	fmt.Fprintf(os.Stderr, "Thunderstorm Mock Server %s starting on %s\n", Version, listenAddr)
