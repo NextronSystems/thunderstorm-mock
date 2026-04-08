@@ -17,7 +17,7 @@ import (
 	"net/http"
 	"os"
 
-	thunderstormmock "github.com/NextronSystems/thunderstorm-mock/go"
+	thunderstormmock "github.com/NextronSystems/thunderstorm-mock/oapi"
 )
 
 // Version is the current version of the mock server.
@@ -159,25 +159,19 @@ func main() {
 	// Configure the logger to use the specified output
 	thunderstormmock.SetLogOutput(output)
 
-	// Enforce consistent error responses
-	thunderstormErrorHandler := func(w http.ResponseWriter, r *http.Request, err error, _ *thunderstormmock.ImplResponse) {
-		// Use error model from the API specification
-		msg := thunderstormmock.Error{Message: fmt.Sprintf("Internal server error: %v", err)}
-		code := func(i int) *int { return &i }(http.StatusInternalServerError)
-		_ = thunderstormmock.EncodeJSONResponse(msg, code, w)
-	}
-
-	// Create API services and controllers
-	InfoAPIService := thunderstormmock.NewInfoAPIService()
-	InfoAPIController := thunderstormmock.NewInfoAPIController(InfoAPIService, thunderstormmock.WithInfoAPIErrorHandler(thunderstormErrorHandler))
-
-	ResultsAPIService := thunderstormmock.NewResultsAPIService()
-	ResultsAPIController := thunderstormmock.NewResultsAPIController(ResultsAPIService, thunderstormmock.WithResultsAPIErrorHandler(thunderstormErrorHandler))
-
-	ScanAPIService := thunderstormmock.NewScanAPIService()
-	ScanAPIController := thunderstormmock.NewScanAPIController(ScanAPIService, thunderstormmock.WithScanAPIErrorHandler(thunderstormErrorHandler))
-
-	router := thunderstormmock.NewRouter(InfoAPIController, ResultsAPIController, ScanAPIController)
+	// Create the mock server and set up the handler
+	mockServer := thunderstormmock.NewMockServer()
+	handler := thunderstormmock.HandlerWithOptions(mockServer, thunderstormmock.StdHTTPServerOptions{
+		BaseURL: "/api/v1",
+		Middlewares: []thunderstormmock.MiddlewareFunc{
+			thunderstormmock.LoggingMiddleware,
+		},
+		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, `{"message":"%s"}`, err.Error())
+		},
+	})
 
 	// Log startup info to stderr (always visible)
 	fmt.Fprintf(os.Stderr, "Thunderstorm Mock Server %s starting on %s\n", Version, listenAddr)
@@ -186,7 +180,7 @@ func main() {
 	}
 
 	// Start the server
-	if err := http.ListenAndServe(listenAddr, router); err != nil {
+	if err := http.ListenAndServe(listenAddr, handler); err != nil {
 		log.Fatal(err)
 	}
 }
