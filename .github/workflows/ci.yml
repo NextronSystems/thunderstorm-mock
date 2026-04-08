@@ -68,7 +68,7 @@ jobs:
         run: go mod download
 
       - name: Run unit tests
-        run: go test -v -count=1 ./go/...
+        run: go test -v -count=1 ./api/...
 
       - name: Run integration tests
         run: go test -tags=integration -v -count=1

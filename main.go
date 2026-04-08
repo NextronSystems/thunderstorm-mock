@@ -17,7 +17,7 @@ import (
 	"net/http"
 	"os"
 
-	thunderstormmock "github.com/NextronSystems/thunderstorm-mock/oapi"
+	thunderstormmock "github.com/NextronSystems/thunderstorm-mock/api"
 )
 
 // Version is the current version of the mock server.

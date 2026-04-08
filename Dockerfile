@@ -1,6 +1,6 @@
-FROM golang:1.19 AS build
+FROM golang:1.24 AS build
 WORKDIR /go/src
-COPY go ./go
+COPY api ./api
 COPY main.go .
 COPY go.sum .
 COPY go.mod .
