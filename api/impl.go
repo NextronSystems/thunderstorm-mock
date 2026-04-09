@@ -1,12 +1,13 @@
 package thunderstormmock
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"net/http"
+	"io"
+	"mime/multipart"
 )
 
-// MockServer implements the ServerInterface for the Thunderstorm mock server.
+// MockServer implements the StrictServerInterface for the Thunderstorm mock server.
 type MockServer struct{}
 
 // NewMockServer creates a new mock server instance.
@@ -14,144 +15,153 @@ func NewMockServer() *MockServer {
 	return &MockServer{}
 }
 
-// Ensure MockServer implements ServerInterface at compile time.
-var _ ServerInterface = (*MockServer)(nil)
+// Ensure MockServer implements StrictServerInterface at compile time.
+var _ StrictServerInterface = (*MockServer)(nil)
 
-// writeJSON encodes the given body as JSON and writes it to the response with the given status code.
-func writeJSON(w http.ResponseWriter, status int, body interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(status)
-	if body != nil {
-		_ = json.NewEncoder(w).Encode(body)
-	}
-}
-
-// getSpecialTriggerResponse checks source for special testing-related triggers.
-func getSpecialTriggerResponse(w http.ResponseWriter, source string) bool {
+// getSpecialTriggerCheck checks source for special testing-related triggers on scan endpoints.
+// Returns the response object and true if a trigger matched, or nil and false otherwise.
+func getSpecialTriggerCheck(source string) (CheckResponseObject, bool) {
 	switch source {
 	case "error 400":
-		writeJSON(w, http.StatusBadRequest, Error{Message: "Invalid parameters given"})
-		return true
+		return Check400JSONResponse{BadRequestJSONResponse{Message: "Invalid parameters given"}}, true
 	case "error 500":
-		writeJSON(w, http.StatusInternalServerError, Error{Message: "Internal server error"})
-		return true
+		return Check500JSONResponse{InternalServerErrorJSONResponse{Message: "Internal server error"}}, true
 	}
-	return false
+	return nil, false
+}
+
+// getSpecialTriggerCheckAsync checks source for special testing-related triggers on async scan endpoints.
+func getSpecialTriggerCheckAsync(source string) (CheckAsyncResponseObject, bool) {
+	switch source {
+	case "error 400":
+		return CheckAsync400JSONResponse{BadRequestJSONResponse{Message: "Invalid parameters given"}}, true
+	case "error 500":
+		return CheckAsync500JSONResponse{InternalServerErrorJSONResponse{Message: "Internal server error"}}, true
+	}
+	return nil, false
+}
+
+// readFileFromMultipart reads the first "file" part from a multipart reader.
+func readFileFromMultipart(reader *multipart.Reader) (io.ReadCloser, error) {
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			return nil, fmt.Errorf("missing 'file' field in multipart body")
+		}
+		if err != nil {
+			return nil, err
+		}
+		if part.FormName() == "file" {
+			return part, nil
+		}
+		_ = part.Close()
+	}
 }
 
 // Check handles synchronous file scanning.
 // (POST /check)
-func (s *MockServer) Check(w http.ResponseWriter, r *http.Request, params CheckParams) {
+func (s *MockServer) Check(_ context.Context, request CheckRequestObject) (CheckResponseObject, error) {
 	source := ""
-	if params.Source != nil {
-		source = *params.Source
+	if request.Params.Source != nil {
+		source = *request.Params.Source
 	}
 
-	if getSpecialTriggerResponse(w, source) {
-		return
+	if resp, matched := getSpecialTriggerCheck(source); matched {
+		return resp, nil
 	}
 
-	file, _, err := r.FormFile("file")
+	file, err := readFileFromMultipart(request.Body)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, Error{Message: fmt.Sprintf("Missing or invalid file: %v", err)})
-		return
+		return Check400JSONResponse{BadRequestJSONResponse{Message: fmt.Sprintf("Missing or invalid file: %v", err)}}, nil
 	}
 	defer func() { _ = file.Close() }()
 
 	req, err := StoreScanRequest(true, file, source)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, Error{Message: fmt.Sprintf("Internal server error: %v", err)})
-		return
+		return Check500JSONResponse{InternalServerErrorJSONResponse{Message: fmt.Sprintf("Internal server error: %v", err)}}, nil
 	}
-	writeJSON(w, http.StatusOK, req.ToThorReport())
+	return Check200JSONResponse(req.ToThorReport()), nil
 }
 
 // CheckAsync handles asynchronous file scanning.
 // (POST /checkAsync)
-func (s *MockServer) CheckAsync(w http.ResponseWriter, r *http.Request, params CheckAsyncParams) {
+func (s *MockServer) CheckAsync(_ context.Context, request CheckAsyncRequestObject) (CheckAsyncResponseObject, error) {
 	source := ""
-	if params.Source != nil {
-		source = *params.Source
+	if request.Params.Source != nil {
+		source = *request.Params.Source
 	}
 
-	if getSpecialTriggerResponse(w, source) {
-		return
+	if resp, matched := getSpecialTriggerCheckAsync(source); matched {
+		return resp, nil
 	}
 
-	file, _, err := r.FormFile("file")
+	file, err := readFileFromMultipart(request.Body)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, Error{Message: fmt.Sprintf("Missing or invalid file: %v", err)})
-		return
+		return CheckAsync400JSONResponse{BadRequestJSONResponse{Message: fmt.Sprintf("Missing or invalid file: %v", err)}}, nil
 	}
 	defer func() { _ = file.Close() }()
 
 	req, err := StoreScanRequest(false, file, source)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, Error{Message: fmt.Sprintf("Internal server error: %v", err)})
-		return
+		return CheckAsync500JSONResponse{InternalServerErrorJSONResponse{Message: fmt.Sprintf("Internal server error: %v", err)}}, nil
 	}
-	writeJSON(w, http.StatusOK, SampleIdObj{Id: int64(req.ID)})
+	return CheckAsync200JSONResponse(SampleIdObj{Id: int64(req.ID)}), nil
 }
 
 // GetAsyncResults retrieves the results of an asynchronous file check.
 // (GET /getAsyncResults)
-func (s *MockServer) GetAsyncResults(w http.ResponseWriter, r *http.Request, params GetAsyncResultsParams) {
-	id := params.Id
+func (s *MockServer) GetAsyncResults(_ context.Context, request GetAsyncResultsRequestObject) (GetAsyncResultsResponseObject, error) {
+	id := request.Params.Id
 
 	switch id {
-	// Handle some special triggers for testing purposes
 	case 0:
-		writeJSON(w, http.StatusOK, ScanRequest{ID: 0}.ToResult())
-		return
+		return GetAsyncResults200JSONResponse(ScanRequest{ID: 0}.ToResult()), nil
 	case -400:
-		writeJSON(w, http.StatusBadRequest, Error{Message: "Invalid parameters given"})
-		return
+		return GetAsyncResults400JSONResponse{BadRequestJSONResponse{Message: "Invalid parameters given"}}, nil
 	case -500:
-		writeJSON(w, http.StatusInternalServerError, Error{Message: "Internal server error"})
-		return
+		return GetAsyncResults500JSONResponse{InternalServerErrorJSONResponse{Message: "Internal server error"}}, nil
 	}
 
 	if req, ok := LoadScanRequest(id); ok {
-		writeJSON(w, http.StatusOK, req.ToResult())
-		return
+		return GetAsyncResults200JSONResponse(req.ToResult()), nil
 	}
-	writeJSON(w, http.StatusBadRequest, Error{Message: "Invalid sample ID"})
+	return GetAsyncResults400JSONResponse{BadRequestJSONResponse{Message: "Invalid sample ID"}}, nil
 }
 
 // Info returns static information about the running THOR instance.
 // (GET /info)
-func (s *MockServer) Info(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, MockInfo())
+func (s *MockServer) Info(_ context.Context, _ InfoRequestObject) (InfoResponseObject, error) {
+	return Info200JSONResponse(MockInfo()), nil
 }
 
 // QueueHistory returns a history of how many asynchronous requests were queued.
 // (GET /queueHistory)
-func (s *MockServer) QueueHistory(w http.ResponseWriter, r *http.Request, params QueueHistoryParams) {
+func (s *MockServer) QueueHistory(_ context.Context, request QueueHistoryRequestObject) (QueueHistoryResponseObject, error) {
 	var aggregate, limit int64
-	if params.Aggregate != nil {
-		aggregate = *params.Aggregate
+	if request.Params.Aggregate != nil {
+		aggregate = *request.Params.Aggregate
 	}
-	if params.Limit != nil {
-		limit = *params.Limit
+	if request.Params.Limit != nil {
+		limit = *request.Params.Limit
 	}
-	writeJSON(w, http.StatusOK, History(queueHistoryType, aggregate, limit))
+	return QueueHistory200JSONResponse{QueueHistoryJSONResponse(History(queueHistoryType, aggregate, limit))}, nil
 }
 
 // SampleHistory returns a history of how many samples were scanned.
 // (GET /sampleHistory)
-func (s *MockServer) SampleHistory(w http.ResponseWriter, r *http.Request, params SampleHistoryParams) {
+func (s *MockServer) SampleHistory(_ context.Context, request SampleHistoryRequestObject) (SampleHistoryResponseObject, error) {
 	var aggregate, limit int64
-	if params.Aggregate != nil {
-		aggregate = *params.Aggregate
+	if request.Params.Aggregate != nil {
+		aggregate = *request.Params.Aggregate
 	}
-	if params.Limit != nil {
-		limit = *params.Limit
+	if request.Params.Limit != nil {
+		limit = *request.Params.Limit
 	}
-	writeJSON(w, http.StatusOK, History(sampleHistoryType, aggregate, limit))
+	return SampleHistory200JSONResponse{SampleHistoryJSONResponse(History(sampleHistoryType, aggregate, limit))}, nil
 }
 
 // Status returns live information about the running THOR instance.
 // (GET /status)
-func (s *MockServer) Status(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, MockStatus())
+func (s *MockServer) Status(_ context.Context, _ StatusRequestObject) (StatusResponseObject, error) {
+	return Status200JSONResponse(MockStatus()), nil
 }

@@ -6,11 +6,15 @@
 package thunderstormmock
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -516,4 +520,466 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/status", wrapper.Status)
 
 	return m
+}
+
+type BadRequestJSONResponse Error
+
+type InternalServerErrorJSONResponse Error
+
+type QueueHistoryJSONResponse TimestampMap
+
+type SampleHistoryJSONResponse TimestampMap
+
+type CheckRequestObject struct {
+	Params CheckParams
+	Body   *multipart.Reader
+}
+
+type CheckResponseObject interface {
+	VisitCheckResponse(w http.ResponseWriter) error
+}
+
+type Check200JSONResponse ThorReport
+
+func (response Check200JSONResponse) VisitCheckResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type Check400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response Check400JSONResponse) VisitCheckResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type Check500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response Check500JSONResponse) VisitCheckResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CheckAsyncRequestObject struct {
+	Params CheckAsyncParams
+	Body   *multipart.Reader
+}
+
+type CheckAsyncResponseObject interface {
+	VisitCheckAsyncResponse(w http.ResponseWriter) error
+}
+
+type CheckAsync200JSONResponse SampleIdObj
+
+func (response CheckAsync200JSONResponse) VisitCheckAsyncResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CheckAsync400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CheckAsync400JSONResponse) VisitCheckAsyncResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CheckAsync500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response CheckAsync500JSONResponse) VisitCheckAsyncResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAsyncResultsRequestObject struct {
+	Params GetAsyncResultsParams
+}
+
+type GetAsyncResultsResponseObject interface {
+	VisitGetAsyncResultsResponse(w http.ResponseWriter) error
+}
+
+type GetAsyncResults200JSONResponse AsyncResult
+
+func (response GetAsyncResults200JSONResponse) VisitGetAsyncResultsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAsyncResults400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetAsyncResults400JSONResponse) VisitGetAsyncResultsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAsyncResults500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response GetAsyncResults500JSONResponse) VisitGetAsyncResultsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type InfoRequestObject struct {
+}
+
+type InfoResponseObject interface {
+	VisitInfoResponse(w http.ResponseWriter) error
+}
+
+type Info200JSONResponse ThunderstormInfo
+
+func (response Info200JSONResponse) VisitInfoResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type Info500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response Info500JSONResponse) VisitInfoResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type QueueHistoryRequestObject struct {
+	Params QueueHistoryParams
+}
+
+type QueueHistoryResponseObject interface {
+	VisitQueueHistoryResponse(w http.ResponseWriter) error
+}
+
+type QueueHistory200JSONResponse struct{ QueueHistoryJSONResponse }
+
+func (response QueueHistory200JSONResponse) VisitQueueHistoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type QueueHistory400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response QueueHistory400JSONResponse) VisitQueueHistoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SampleHistoryRequestObject struct {
+	Params SampleHistoryParams
+}
+
+type SampleHistoryResponseObject interface {
+	VisitSampleHistoryResponse(w http.ResponseWriter) error
+}
+
+type SampleHistory200JSONResponse struct{ SampleHistoryJSONResponse }
+
+func (response SampleHistory200JSONResponse) VisitSampleHistoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SampleHistory400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SampleHistory400JSONResponse) VisitSampleHistoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StatusRequestObject struct {
+}
+
+type StatusResponseObject interface {
+	VisitStatusResponse(w http.ResponseWriter) error
+}
+
+type Status200JSONResponse ThunderstormStatus
+
+func (response Status200JSONResponse) VisitStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+// StrictServerInterface represents all server handlers.
+type StrictServerInterface interface {
+	// Check a file with THOR
+	// (POST /check)
+	Check(ctx context.Context, request CheckRequestObject) (CheckResponseObject, error)
+	// Check a file with THOR asynchronously
+	// (POST /checkAsync)
+	CheckAsync(ctx context.Context, request CheckAsyncRequestObject) (CheckAsyncResponseObject, error)
+	// Retrieve the results of an asynchronous file check
+	// (GET /getAsyncResults)
+	GetAsyncResults(ctx context.Context, request GetAsyncResultsRequestObject) (GetAsyncResultsResponseObject, error)
+	// Receive static information about the running THOR instance
+	// (GET /info)
+	Info(ctx context.Context, request InfoRequestObject) (InfoResponseObject, error)
+	// Retrieve a history of how many asynchronous requests were queued
+	// (GET /queueHistory)
+	QueueHistory(ctx context.Context, request QueueHistoryRequestObject) (QueueHistoryResponseObject, error)
+	// Retrieve a history of how many samples were scanned
+	// (GET /sampleHistory)
+	SampleHistory(ctx context.Context, request SampleHistoryRequestObject) (SampleHistoryResponseObject, error)
+	// Receive live information about the running THOR instance
+	// (GET /status)
+	Status(ctx context.Context, request StatusRequestObject) (StatusResponseObject, error)
+}
+
+type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
+type StrictMiddlewareFunc = strictnethttp.StrictHTTPMiddlewareFunc
+
+type StrictHTTPServerOptions struct {
+	RequestErrorHandlerFunc  func(w http.ResponseWriter, r *http.Request, err error)
+	ResponseErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
+}
+
+func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc) ServerInterface {
+	return &strictHandler{ssi: ssi, middlewares: middlewares, options: StrictHTTPServerOptions{
+		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		},
+		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		},
+	}}
+}
+
+func NewStrictHandlerWithOptions(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc, options StrictHTTPServerOptions) ServerInterface {
+	return &strictHandler{ssi: ssi, middlewares: middlewares, options: options}
+}
+
+type strictHandler struct {
+	ssi         StrictServerInterface
+	middlewares []StrictMiddlewareFunc
+	options     StrictHTTPServerOptions
+}
+
+// Check operation middleware
+func (sh *strictHandler) Check(w http.ResponseWriter, r *http.Request, params CheckParams) {
+	var request CheckRequestObject
+
+	request.Params = params
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Check(ctx, request.(CheckRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Check")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CheckResponseObject); ok {
+		if err := validResponse.VisitCheckResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CheckAsync operation middleware
+func (sh *strictHandler) CheckAsync(w http.ResponseWriter, r *http.Request, params CheckAsyncParams) {
+	var request CheckAsyncRequestObject
+
+	request.Params = params
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CheckAsync(ctx, request.(CheckAsyncRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CheckAsync")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CheckAsyncResponseObject); ok {
+		if err := validResponse.VisitCheckAsyncResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAsyncResults operation middleware
+func (sh *strictHandler) GetAsyncResults(w http.ResponseWriter, r *http.Request, params GetAsyncResultsParams) {
+	var request GetAsyncResultsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAsyncResults(ctx, request.(GetAsyncResultsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAsyncResults")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAsyncResultsResponseObject); ok {
+		if err := validResponse.VisitGetAsyncResultsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Info operation middleware
+func (sh *strictHandler) Info(w http.ResponseWriter, r *http.Request) {
+	var request InfoRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Info(ctx, request.(InfoRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Info")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(InfoResponseObject); ok {
+		if err := validResponse.VisitInfoResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// QueueHistory operation middleware
+func (sh *strictHandler) QueueHistory(w http.ResponseWriter, r *http.Request, params QueueHistoryParams) {
+	var request QueueHistoryRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.QueueHistory(ctx, request.(QueueHistoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "QueueHistory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(QueueHistoryResponseObject); ok {
+		if err := validResponse.VisitQueueHistoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SampleHistory operation middleware
+func (sh *strictHandler) SampleHistory(w http.ResponseWriter, r *http.Request, params SampleHistoryParams) {
+	var request SampleHistoryRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SampleHistory(ctx, request.(SampleHistoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SampleHistory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SampleHistoryResponseObject); ok {
+		if err := validResponse.VisitSampleHistoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Status operation middleware
+func (sh *strictHandler) Status(w http.ResponseWriter, r *http.Request) {
+	var request StatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Status(ctx, request.(StatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Status")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StatusResponseObject); ok {
+		if err := validResponse.VisitStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }

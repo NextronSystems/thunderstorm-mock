@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"mime/multipart"
 	"sync"
 	"time"
 
@@ -92,7 +91,7 @@ func (s ScanRequest) ToResult() AsyncResult {
 	}
 }
 
-func StoreScanRequest(synchronous bool, file multipart.File, source string) (ScanRequest, error) {
+func StoreScanRequest(synchronous bool, file io.Reader, source string) (ScanRequest, error) {
 	submissionTime := time.Now()
 
 	h := sha256.New()

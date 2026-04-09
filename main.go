@@ -160,15 +160,22 @@ func main() {
 
 	// Create the mock server and set up the handler
 	mockServer := thunderstormmock.NewMockServer()
-	handler := thunderstormmock.HandlerWithOptions(mockServer, thunderstormmock.StdHTTPServerOptions{
-		BaseURL: "/api/v1",
-		Middlewares: []thunderstormmock.MiddlewareFunc{
-			thunderstormmock.LoggingMiddleware,
-		},
-		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+	strictHandler := thunderstormmock.NewStrictHandlerWithOptions(mockServer, nil, thunderstormmock.StrictHTTPServerOptions{
+		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, `{"message":"%s"}`, err.Error())
+		},
+		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `{"message":"%s"}`, err.Error())
+		},
+	})
+	handler := thunderstormmock.HandlerWithOptions(strictHandler, thunderstormmock.StdHTTPServerOptions{
+		BaseURL: "/api/v1",
+		Middlewares: []thunderstormmock.MiddlewareFunc{
+			thunderstormmock.LoggingMiddleware,
 		},
 	})
 

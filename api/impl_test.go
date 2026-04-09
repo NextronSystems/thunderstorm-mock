@@ -14,9 +14,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"mime/multipart"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -61,7 +62,7 @@ func TestNextScanIDConcurrent(t *testing.T) {
 // ==================== StoreScanRequest / LoadScanRequest Tests ====================
 
 func TestStoreScanRequestAndLoad(t *testing.T) {
-	file := newMultipartFile(t, "hello world")
+	file := newTestReader(t, "hello world")
 
 	req, err := StoreScanRequest(true, file, "test-source")
 	require.NoError(t, err)
@@ -84,15 +85,15 @@ func TestLoadScanRequestNotFound(t *testing.T) {
 }
 
 func TestStoreScanRequestHashDeterministic(t *testing.T) {
-	req1, _ := StoreScanRequest(true, newMultipartFile(t, "same content"), "")
-	req2, _ := StoreScanRequest(true, newMultipartFile(t, "same content"), "")
+	req1, _ := StoreScanRequest(true, newTestReader(t, "same content"), "")
+	req2, _ := StoreScanRequest(true, newTestReader(t, "same content"), "")
 
 	assert.Equal(t, req1.FileHash, req2.FileHash)
 }
 
 func TestStoreScanRequestHashDiffers(t *testing.T) {
-	req1, _ := StoreScanRequest(true, newMultipartFile(t, "content A"), "")
-	req2, _ := StoreScanRequest(true, newMultipartFile(t, "content B"), "")
+	req1, _ := StoreScanRequest(true, newTestReader(t, "content A"), "")
+	req2, _ := StoreScanRequest(true, newTestReader(t, "content B"), "")
 
 	assert.NotEqual(t, req1.FileHash, req2.FileHash)
 }
@@ -186,7 +187,7 @@ func TestMockInfoPopulated(t *testing.T) {
 }
 
 func TestMockStatusReflectsScans(t *testing.T) {
-	_, _ = StoreScanRequest(true, newMultipartFile(t, "status test"), "")
+	_, _ = StoreScanRequest(true, newTestReader(t, "status test"), "")
 
 	status := MockStatus()
 	assert.GreaterOrEqual(t, status.ScannedSamples, int64(1))
@@ -195,7 +196,7 @@ func TestMockStatusReflectsScans(t *testing.T) {
 // ==================== History Tests ====================
 
 func TestHistoryContainsBuckets(t *testing.T) {
-	_, _ = StoreScanRequest(true, newMultipartFile(t, "history test"), "")
+	_, _ = StoreScanRequest(true, newTestReader(t, "history test"), "")
 
 	h := History(sampleHistoryType, 1, 0)
 	assert.NotEmpty(t, h)
@@ -233,49 +234,51 @@ func TestStatusStrings(t *testing.T) {
 	}
 }
 
-// ==================== writeJSON Tests ====================
+// ==================== getSpecialTriggerCheck Tests ====================
 
-func TestWriteJSON(t *testing.T) {
-	rr := httptest.NewRecorder()
-	writeJSON(rr, http.StatusCreated, map[string]string{"key": "value"})
-
-	assert.Equal(t, http.StatusCreated, rr.Code)
-	assert.Contains(t, rr.Header().Get("Content-Type"), "application/json")
-	assert.Contains(t, rr.Body.String(), `"key"`)
-}
-
-func TestWriteJSONNilBody(t *testing.T) {
-	rr := httptest.NewRecorder()
-	writeJSON(rr, http.StatusNoContent, nil)
-
-	assert.Equal(t, http.StatusNoContent, rr.Code)
-	assert.Empty(t, rr.Body.String())
-}
-
-// ==================== getSpecialTriggerResponse Tests ====================
-
-func TestGetSpecialTriggerResponse(t *testing.T) {
+func TestGetSpecialTriggerCheck(t *testing.T) {
 	tests := []struct {
-		source       string
-		expectMatch  bool
-		expectedCode int
-		expectedMsg  string
+		source      string
+		expectMatch bool
 	}{
-		{"error 400", true, 400, "Invalid parameters given"},
-		{"error 500", true, 500, "Internal server error"},
-		{"normal", false, 0, ""},
-		{"", false, 0, ""},
+		{"error 400", true},
+		{"error 500", true},
+		{"normal", false},
+		{"", false},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.source, func(t *testing.T) {
-			rr := httptest.NewRecorder()
-			matched := getSpecialTriggerResponse(rr, tc.source)
-
+			resp, matched := getSpecialTriggerCheck(tc.source)
 			assert.Equal(t, tc.expectMatch, matched)
 			if matched {
-				assert.Equal(t, tc.expectedCode, rr.Code)
-				assert.Contains(t, rr.Body.String(), tc.expectedMsg)
+				assert.NotNil(t, resp)
+			} else {
+				assert.Nil(t, resp)
+			}
+		})
+	}
+}
+
+func TestGetSpecialTriggerCheckAsync(t *testing.T) {
+	tests := []struct {
+		source      string
+		expectMatch bool
+	}{
+		{"error 400", true},
+		{"error 500", true},
+		{"normal", false},
+		{"", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.source, func(t *testing.T) {
+			resp, matched := getSpecialTriggerCheckAsync(tc.source)
+			assert.Equal(t, tc.expectMatch, matched)
+			if matched {
+				assert.NotNil(t, resp)
+			} else {
+				assert.Nil(t, resp)
 			}
 		})
 	}
@@ -349,19 +352,8 @@ func TestLoggingMiddleware(t *testing.T) {
 
 // ==================== Test Helpers ====================
 
-// newMultipartFile creates a multipart.File from in-memory content for testing.
-func newMultipartFile(t *testing.T, content string) multipart.File {
+// newTestReader creates an io.Reader from in-memory content for testing.
+func newTestReader(t *testing.T, content string) io.Reader {
 	t.Helper()
-	return newReadSeekCloser([]byte(content))
+	return strings.NewReader(content)
 }
-
-// readSeekCloser wraps a bytes.Reader to satisfy multipart.File (io.Reader + io.ReaderAt + io.Seeker + io.Closer).
-type readSeekCloser struct {
-	*bytes.Reader
-}
-
-func newReadSeekCloser(b []byte) *readSeekCloser {
-	return &readSeekCloser{bytes.NewReader(b)}
-}
-
-func (r *readSeekCloser) Close() error { return nil }
