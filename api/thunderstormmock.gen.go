@@ -6,17 +6,10 @@
 package thunderstormmock
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
 	"fmt"
 	"net/http"
-	"net/url"
-	"path"
-	"strings"
 	"time"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -48,7 +41,7 @@ type SampleId = int64
 // SampleIdObj Object containing the Sample ID returned for an asynchronous scan request
 type SampleIdObj struct {
 	// Id Sample ID returned for an asynchronous scan request
-	Id int64 `json:"id"`
+	Id SampleId `json:"id"`
 }
 
 // ThorFinding THOR Finding
@@ -111,16 +104,37 @@ type ThunderstormVersionInfo struct {
 // TimestampMap Map of timestamps to integer values
 type TimestampMap map[string]int64
 
+// AggregationPeriod defines model for AggregationPeriod.
+type AggregationPeriod = int64
+
+// HistoryLimit defines model for HistoryLimit.
+type HistoryLimit = int64
+
+// SampleSource defines model for SampleSource.
+type SampleSource = string
+
+// BadRequest Error with message
+type BadRequest = Error
+
+// InternalServerError Error with message
+type InternalServerError = Error
+
+// QueueHistory Map of timestamps to integer values
+type QueueHistory = TimestampMap
+
+// SampleHistory Map of timestamps to integer values
+type SampleHistory = TimestampMap
+
 // CheckParams defines parameters for Check.
 type CheckParams struct {
 	// Source Specify source for the THOR log
-	Source *string `form:"source,omitempty" json:"source,omitempty"`
+	Source *SampleSource `form:"source,omitempty" json:"source,omitempty"`
 }
 
 // CheckAsyncParams defines parameters for CheckAsync.
 type CheckAsyncParams struct {
 	// Source Specify source for the THOR log
-	Source *string `form:"source,omitempty" json:"source,omitempty"`
+	Source *SampleSource `form:"source,omitempty" json:"source,omitempty"`
 }
 
 // GetAsyncResultsParams defines parameters for GetAsyncResults.
@@ -132,19 +146,19 @@ type GetAsyncResultsParams struct {
 // QueueHistoryParams defines parameters for QueueHistory.
 type QueueHistoryParams struct {
 	// Aggregate Aggregate this many minutes per value (default 1).
-	Aggregate *int64 `form:"aggregate,omitempty" json:"aggregate,omitempty"`
+	Aggregate *AggregationPeriod `form:"aggregate,omitempty" json:"aggregate,omitempty"`
 
 	// Limit Give a history for the last this many minutes (default infinite).
-	Limit *int64 `form:"limit,omitempty" json:"limit,omitempty"`
+	Limit *HistoryLimit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // SampleHistoryParams defines parameters for SampleHistory.
 type SampleHistoryParams struct {
 	// Aggregate Aggregate this many minutes per value (default 1).
-	Aggregate *int64 `form:"aggregate,omitempty" json:"aggregate,omitempty"`
+	Aggregate *AggregationPeriod `form:"aggregate,omitempty" json:"aggregate,omitempty"`
 
 	// Limit Give a history for the last this many minutes (default infinite).
-	Limit *int64 `form:"limit,omitempty" json:"limit,omitempty"`
+	Limit *HistoryLimit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // CheckMultipartRequestBody defines body for Check for multipart/form-data ContentType.
@@ -502,140 +516,4 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/status", wrapper.Status)
 
 	return m
-}
-
-// Base64 encoded, gzipped, json marshaled Swagger object
-var swaggerSpec = []string{
-
-	"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",
-}
-
-// GetSwagger returns the content of the embedded swagger specification file
-// or error if failed to decode
-func decodeSpec() ([]byte, error) {
-	zipped, err := base64.StdEncoding.DecodeString(strings.Join(swaggerSpec, ""))
-	if err != nil {
-		return nil, fmt.Errorf("error base64 decoding spec: %w", err)
-	}
-	zr, err := gzip.NewReader(bytes.NewReader(zipped))
-	if err != nil {
-		return nil, fmt.Errorf("error decompressing spec: %w", err)
-	}
-	var buf bytes.Buffer
-	_, err = buf.ReadFrom(zr)
-	if err != nil {
-		return nil, fmt.Errorf("error decompressing spec: %w", err)
-	}
-
-	return buf.Bytes(), nil
-}
-
-var rawSpec = decodeSpecCached()
-
-// a naive cached of a decoded swagger spec
-func decodeSpecCached() func() ([]byte, error) {
-	data, err := decodeSpec()
-	return func() ([]byte, error) {
-		return data, err
-	}
-}
-
-// Constructs a synthetic filesystem for resolving external references when loading openapi specifications.
-func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
-	res := make(map[string]func() ([]byte, error))
-	if len(pathToFile) > 0 {
-		res[pathToFile] = rawSpec
-	}
-
-	return res
-}
-
-// GetSwagger returns the Swagger specification corresponding to the generated code
-// in this file. The external references of Swagger specification are resolved.
-// The logic of resolving external references is tightly connected to "import-mapping" feature.
-// Externally referenced files must be embedded in the corresponding golang packages.
-// Urls can be supported but this task was out of the scope.
-func GetSwagger() (swagger *openapi3.T, err error) {
-	resolvePath := PathToRawSpec("")
-
-	loader := openapi3.NewLoader()
-	loader.IsExternalRefsAllowed = true
-	loader.ReadFromURIFunc = func(loader *openapi3.Loader, url *url.URL) ([]byte, error) {
-		pathToFile := url.String()
-		pathToFile = path.Clean(pathToFile)
-		getSpec, ok := resolvePath[pathToFile]
-		if !ok {
-			err1 := fmt.Errorf("path not found: %s", pathToFile)
-			return nil, err1
-		}
-		return getSpec()
-	}
-	var specData []byte
-	specData, err = rawSpec()
-	if err != nil {
-		return
-	}
-	swagger, err = loader.LoadFromData(specData)
-	if err != nil {
-		return
-	}
-	return
 }
