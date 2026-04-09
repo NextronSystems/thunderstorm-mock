@@ -12,7 +12,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -179,8 +178,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Logging requests to: %s\n", cfg.Output)
 	}
 
-	// Start the server
-	if err := http.ListenAndServe(listenAddr, handler); err != nil {
-		log.Fatal(err)
-	}
+	// Start the server (ListenAndServe always returns a non-nil error)
+	fmt.Fprintf(os.Stderr, "Server exit: %v\n", http.ListenAndServe(listenAddr, handler))
 }
