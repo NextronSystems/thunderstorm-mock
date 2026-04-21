@@ -22,7 +22,7 @@ import (
 // Version is the current version of the mock server.
 // This should match the latest release tag (e.g., "v1.0.0").
 // During build, this can be overridden via -ldflags.
-var Version = "v0.0.0-dev"
+var Version = "v1.0.0"
 
 const (
 	envPrefix = "THUNDERSTORM_MOCK_"
