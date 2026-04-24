@@ -1,0 +1,28 @@
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - typecheck
+    - errcheck
+    - gocritic
+    - revive
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - encoding/json.Marshal
+      - (net/http.ResponseWriter).Write
+  revive:
+    rules:
+      - name: blank-imports
+      - name: exported
+        disabled: true
+
+issues:
+  exclude-dirs:
+    - api/tools
+  exclude-files:
+    - ".*\\.gen\\.go$"
